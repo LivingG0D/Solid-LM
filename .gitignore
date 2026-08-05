@@ -1,0 +1,17 @@
+# Python environment for MLX / Kokoro — recreate with the commands in the README
+.venv/
+__pycache__/
+*.pyc
+
+# Build output
+mac/build/
+mac/SolidChat.iconset/
+
+# App state and models never belong in the repo
+data/
+*.gguf
+*.safetensors
+*.ckpt
+*.pth
+
+.DS_Store
