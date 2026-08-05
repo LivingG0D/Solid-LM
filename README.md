@@ -14,6 +14,8 @@ without Xcode.
 ![Apple silicon](https://img.shields.io/badge/Apple-silicon-lightgrey)
 ![MIT](https://img.shields.io/badge/license-MIT-blue)
 
+**[⬇ Download 1.0.0](https://github.com/LivingG0D/Solid-LM/releases/latest)** · 2.3 MB · Apple silicon
+
 </div>
 
 ---
@@ -140,7 +142,24 @@ cancellable, atomically installed.
 
 ## Install
 
-Requires **Command Line Tools only — no Xcode.**
+### Download
+
+Grab the [latest release](https://github.com/LivingG0D/Solid-LM/releases/latest), then:
+
+```bash
+unzip SolidChat-1.0-arm64.zip
+mv SolidChat.app /Applications/
+xattr -dr com.apple.quarantine /Applications/SolidChat.app
+open /Applications/SolidChat.app
+```
+
+The `xattr` line is not optional. The app is ad-hoc signed rather than notarised, and macOS
+quarantines anything downloaded from the internet — without it the app is blocked on first launch.
+Verified on a clean copy of the published zip: blocked before that command, launches after.
+
+### Or build it
+
+Requires **Command Line Tools only — no Xcode**, and avoids the quarantine step entirely.
 
 ```bash
 git clone https://github.com/LivingG0D/Solid-LM.git
