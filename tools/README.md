@@ -1,7 +1,7 @@
 # Screenshot tooling
 
-How the UI screenshots in the top-level README were captured, so they can be regenerated
-rather than hand-cropped.
+For capturing UI screenshots of the app — reproducibly, rather than hand-cropping a full-screen
+grab. The top-level README does not currently use any; this is here for when it does.
 
 ```bash
 open -a /Applications/SolidChat.app
