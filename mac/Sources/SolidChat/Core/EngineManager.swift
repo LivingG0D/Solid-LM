@@ -25,7 +25,28 @@ enum Paths {
     }
 
     static var defaultLlamaServer: String { inHome("prism-llama/prism/llama-prism-b9599-9ca265a/llama-server") }
-    static var defaultVenvPython: String { inHome("github/Solid-LM/.venv/bin/python") }
+
+    /// The venv is created inside whatever the checkout is called, and that name is not
+    /// knowable from here — a clone can be `Solid-LM`, `solid-ui`, or anything else.
+    /// Guessing one and baking it in is how this broke: the default named the repo while
+    /// the checkout on disk was named something else, so MLX and speech failed with a
+    /// path that had never existed.
+    ///
+    /// So: probe the plausible spots and take the first that is actually there. The
+    /// documented location is still the fallback, because it is what the error message
+    /// should name when nothing is found.
+    static var defaultVenvPython: String {
+        let candidates = [
+            "github/Solid-LM/.venv/bin/python",
+            "github/solid-ui/.venv/bin/python",
+            "Solid-LM/.venv/bin/python",
+            "solid-ui/.venv/bin/python",
+            ".venv/bin/python",
+        ].map(inHome)
+
+        let fm = FileManager.default
+        return candidates.first { fm.isExecutableFile(atPath: $0) } ?? candidates[0]
+    }
 
     /// One engine at a time, always on this port.
     static let enginePort = 8181
