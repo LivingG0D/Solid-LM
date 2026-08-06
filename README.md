@@ -135,6 +135,22 @@ is announced as "(code block)" rather than read character by character.
 Measured: **~4 s to start the worker, then ~1.8 s per utterance producing 2.5–4.7 s of audio.** The
 worker stays resident because a fresh process spends ~2.5 s loading before it says a word.
 
+### Discover — HuggingFace in the app
+
+Browse HuggingFace without leaving the app: search, filter by **GGUF** or **MLX**, sort by trending,
+downloads, likes or recency. Rows show downloads, likes and tags, mark what you already have
+installed, and flag gated repos. Picking one resolves the repo's real files so you choose an actual
+quantisation rather than guessing, with the download size and a warning when it will not fit in
+memory.
+
+Only `text-generation` repos are listed — without that filter the top results are embedding models
+and bare chat-template repos you cannot chat with.
+
+Quant lists exclude **companion files**: vision projectors (`mmproj-*`) and speculative-decoding
+drafts (`mtp-*`, `dspark`, `dflash`) carry their own quant in the filename. Counting them invents
+quantisations a repo cannot serve — `prism-ml/Ternary-Bonsai-27B-gguf` offered a "Q8_0" that existed
+only as a 600 MB projector, and a "BF16" that was a 6.8 GB draft next to a 50 GB real F16.
+
 ### Downloads
 
 Paste a HuggingFace repo URL, pick a quant, and it pulls with 8 parallel range requests — resumable,

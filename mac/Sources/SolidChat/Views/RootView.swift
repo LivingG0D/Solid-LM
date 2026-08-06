@@ -24,7 +24,7 @@ import SwiftUI
 // MARK: - Detail sections
 
 private enum RootTab: String, CaseIterable, Identifiable, Hashable {
-    case chat, images, models, downloads, logs
+    case chat, images, models, discover, downloads, logs
 
     var id: String { rawValue }
 
@@ -33,6 +33,7 @@ private enum RootTab: String, CaseIterable, Identifiable, Hashable {
         case .chat: return "Chat"
         case .images: return "Images"
         case .models: return "Models"
+        case .discover: return "Discover"
         case .downloads: return "Downloads"
         case .logs: return "Logs"
         }
@@ -45,6 +46,7 @@ private enum RootTab: String, CaseIterable, Identifiable, Hashable {
         case .chat: return "bubble.left.and.bubble.right"
         case .images: return "photo.on.rectangle.angled"
         case .models: return "cube"
+        case .discover: return "sparkle.magnifyingglass"
         case .downloads: return "arrow.down.circle"
         case .logs: return "text.alignleft"
         }
@@ -102,6 +104,7 @@ struct RootView: View {
         case .chat: ChatView(onShowModels: { tab = .models })
         case .images: ImagesView()
         case .models: ModelsView()
+        case .discover: MarketView()
         case .downloads: DownloadsView()
         case .logs: LogsView()
         }

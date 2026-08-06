@@ -430,10 +430,28 @@ final class Downloader {
 
     nonisolated static func quantList(fromPaths paths: [String]) -> [String] {
         var seen = Set<String>()
-        for p in paths where p.lowercased().hasSuffix(".gguf") {
+        for p in paths where p.lowercased().hasSuffix(".gguf") && !isCompanionGGUF(p) {
             if let q = parseQuant(fromPath: p) { seen.insert(q) }
         }
         return seen.sorted()
+    }
+
+    /// A `.gguf` that ships beside a model rather than being one: a vision projector
+    /// or a speculative-decoding draft head.
+    ///
+    /// These carry their own quant in the filename, so counting them invents quants the
+    /// repo cannot actually serve. Real case: prism-ml/Ternary-Bonsai-27B-gguf offers
+    /// "Q8_0" that exists only as `…-mmproj-Q8_0.gguf` — picking it downloaded a 600 MB
+    /// projector instead of the 27B model, and the size shown was the projector's.
+    nonisolated static func isCompanionGGUF(_ path: String) -> Bool {
+        let name = ((path as NSString).lastPathComponent).lowercased()
+        if name.contains("mmproj") { return true }                       // vision projector
+        if name.hasPrefix("mtp-") || name.contains("-mtp-") { return true }   // MTP draft head
+        // DSpark / DFlash draft models. Same trap in a different shape: in
+        // prism-ml/Ternary-Bonsai-27B-gguf, "…-dspark-bf16.gguf" is 6.8 GB while the
+        // real F16 is 50 GB — offering it as "BF16" hands over a draft, not a model.
+        if name.contains("dspark") || name.contains("dflash") { return true }
+        return false
     }
 
     // MARK: - File filtering / selection (pure)
@@ -460,7 +478,11 @@ final class Downloader {
             return others + ggufs.sorted { $0.path < $1.path }
         }
 
-        let matching = ggufs.filter { (parseQuant(fromPath: $0.path) ?? "") == want }
+        // Companion files never satisfy a quant request — a projector quantised to Q8_0
+        // is not a Q8_0 model.
+        let matching = ggufs.filter {
+            !isCompanionGGUF($0.path) && (parseQuant(fromPath: $0.path) ?? "") == want
+        }
         guard !matching.isEmpty else { throw DownloaderError.noMatchingFiles(quant, repo.quants) }
         return others + matching.sorted { $0.path < $1.path }
     }
@@ -1009,6 +1031,39 @@ final class Downloader {
         if ggufStem("foo-Q4_0-00002-of-00003.gguf") != "foo-Q4_0" {
             fails.append("ggufStem did not strip the shard suffix")
         }
+        // Regression: prism-ml/Ternary-Bonsai-27B-gguf. Its only Q8_0 file is a vision
+        // projector, so offering "Q8_0" as a quant meant downloading 600 MB of projector
+        // instead of the 27B model.
+        let realWorld = quantList(fromPaths: [
+            "Ternary-Bonsai-27B-Q2_0.gguf",
+            "Ternary-Bonsai-27B-F16.gguf",
+            "Ternary-Bonsai-27B-mmproj-Q8_0.gguf",
+            "Ternary-Bonsai-27B-mmproj-BF16.gguf",
+            "Ternary-Bonsai-27B-dspark-bf16.gguf",
+            "Ternary-Bonsai-27B-dspark-Q4_1.gguf",
+            "mtp-gemma-4-12B-it.gguf",
+        ])
+        // BF16 and Q4_1 exist here only as dspark drafts — 6.8 GB and 1.8 GB against a
+        // 50 GB real F16 — so neither is a quant of the model.
+        if realWorld.contains("BF16") || realWorld.contains("Q4_1") {
+            fails.append("quantList kept a dspark-draft-only quant: \(realWorld)")
+        }
+        if realWorld.contains("Q8_0") {
+            fails.append("quantList kept a projector-only quant: \(realWorld)")
+        }
+        if !realWorld.contains("Q2_0") || !realWorld.contains("F16") {
+            fails.append("quantList dropped a real quant: \(realWorld)")
+        }
+        for companion in ["x-mmproj-BF16.gguf", "mtp-gemma-4-12B-it.gguf", "a/b/MMPROJ-f16.gguf",
+                          "m-dspark-bf16.gguf", "m-dflash-Q4_1.gguf"]
+        where !isCompanionGGUF(companion) {
+            fails.append("isCompanionGGUF missed \(companion)")
+        }
+        for model in ["Ternary-Bonsai-27B-Q2_0.gguf", "a-Q4_K_M-00001-of-00002.gguf"]
+        where isCompanionGGUF(model) {
+            fails.append("isCompanionGGUF wrongly flagged \(model)")
+        }
+
         let quants = quantList(fromPaths: ["a-Q3_K_XL.gguf", "a-Q3_K_S.gguf", "a-Q3_K_XL-00001-of-00002.gguf", "README.md"])
         if quants != ["Q3_K_S", "Q3_K_XL"] {
             fails.append("quantList = \(quants), expected [Q3_K_S, Q3_K_XL]")
