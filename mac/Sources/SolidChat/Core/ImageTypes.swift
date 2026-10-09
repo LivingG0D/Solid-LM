@@ -12,13 +12,13 @@ enum ImageModelKind: String, Codable, Sendable {
 /// Rough architecture, inferred from filename and size. Drives the default
 /// resolution and step count, which differ a lot between families.
 enum ImageArch: String, Codable, Sendable {
-    case sd15, sdxl, sd3, flux, qwen, unknown
+    case sd15, sdxl, sd3, flux, zimage, qwen, unknown
 
     var nativeSize: Int {
         switch self {
         case .sd15: return 512
         case .sdxl, .sd3: return 1024
-        case .flux, .qwen: return 1024
+        case .flux, .zimage, .qwen: return 1024
         case .unknown: return 512
         }
     }
@@ -28,6 +28,9 @@ enum ImageArch: String, Codable, Sendable {
         case .sd15: return 20
         case .sdxl: return 30
         case .sd3: return 28
+        // Tuned for Z-Image-Turbo, the variant people actually run and the one sd.cpp's
+        // own example uses. Plain Z-Image wants more steps and CFG around 5.
+        case .zimage: return 8
         case .flux, .qwen: return 20
         case .unknown: return 20
         }
@@ -36,7 +39,7 @@ enum ImageArch: String, Codable, Sendable {
     /// Flux and friends are guidance-distilled; a high CFG wrecks them.
     var defaultCFG: Double {
         switch self {
-        case .flux, .qwen: return 1.0
+        case .flux, .zimage, .qwen: return 1.0
         case .sd15: return 7.0
         case .sdxl: return 6.0
         case .sd3: return 4.5
@@ -50,6 +53,7 @@ enum ImageArch: String, Codable, Sendable {
         case .sdxl: return "SDXL"
         case .sd3: return "SD3"
         case .flux: return "FLUX"
+        case .zimage: return "Z-Image"
         case .qwen: return "Qwen-Image"
         case .unknown: return "—"
         }

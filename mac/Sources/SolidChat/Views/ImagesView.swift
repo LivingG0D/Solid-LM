@@ -387,6 +387,21 @@ private struct ImageModelBar: View {
 
     private func rowHelp(for model: ImageModel) -> String {
         var text = "\(model.path)\nDefaults to \(model.arch.nativeSize)px, \(model.arch.defaultSteps) steps, CFG \(ImgFmt.number(model.arch.defaultCFG))."
+        // Multi-file families load nothing without their encoders, and finding out at
+        // load time is worse than seeing it here.
+        let roles = model.arch.componentRoles
+        if !roles.isEmpty {
+            let found = ImageComponents.resolve(roles: roles, modelPath: model.path)
+            if found.isEmpty {
+                text += "\nLoads as a single file. If that fails, this family also ships split "
+                    + "across \(roles.map(\.label).joined(separator: ", "))."
+            } else {
+                let lines = roles.map { role in
+                    "  \(found[role] != nil ? "✓" : "✗") \(role.label)"
+                }
+                text += "\nCompanion files:\n" + lines.joined(separator: "\n")
+            }
+        }
         if let over = overBudget(imageBytes: model.size) { text += "\n\(over)" }
         return text
     }
@@ -432,11 +447,11 @@ private struct PromptSection: View {
 
     private var images: ImageStore { store.images }
 
-    /// FLUX and Qwen-Image are guidance-distilled: they run at CFG 1 with no
-    /// unconditional branch, so a negative prompt has nothing to steer with.
+    /// FLUX, Z-Image-Turbo and Qwen-Image are guidance-distilled: they run at CFG 1
+    /// with no unconditional branch, so a negative prompt has nothing to steer with.
     private var supportsNegativePrompt: Bool {
         switch images.loadedModel?.arch ?? .unknown {
-        case .flux, .qwen: return false
+        case .flux, .zimage, .qwen: return false
         default: return true
         }
     }
@@ -603,7 +618,7 @@ private struct SamplingSection: View {
 
     private var isDistilled: Bool {
         switch images.loadedModel?.arch ?? .unknown {
-        case .flux, .qwen: return true
+        case .flux, .zimage, .qwen: return true
         default: return false
         }
     }

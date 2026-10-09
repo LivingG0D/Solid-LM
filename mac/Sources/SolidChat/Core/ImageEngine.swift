@@ -523,16 +523,60 @@ final class ImageEngine {
         }
 
         return ImageLaunchSpec(executable: binary,
-                               arguments: ["-m", model.path,
-                                           "--listen-ip", "127.0.0.1",
-                                           "--listen-port", String(ImagePaths.port),
-                                           // Flash attention in the diffusion model. Measured on this
-                                           // M5 with SD 1.5 Q4_0, 512x512, 20 steps: 132.4s without,
-                                           // 20.8s with — a 6.4x speedup for identical output. This is
-                                           // the image-side equivalent of the LLM's full GPU offload,
-                                           // and it is never worth turning off.
-                                           "--diffusion-fa",
-                                           "-v"])
+                               arguments: try modelArguments(for: model, fm: fm)
+                                           + ["--listen-ip", "127.0.0.1",
+                                              "--listen-port", String(ImagePaths.port),
+                                              // Flash attention in the diffusion model. Measured on this
+                                              // M5 with SD 1.5 Q4_0, 512x512, 20 steps: 132.4s without,
+                                              // 20.8s with — a 6.4x speedup for identical output. This is
+                                              // the image-side equivalent of the LLM's full GPU offload,
+                                              // and it is never worth turning off.
+                                              "--diffusion-fa",
+                                              "-v"])
+    }
+
+    /// How the checkpoint itself is passed, which differs by family.
+    ///
+    /// SD 1.5 and SDXL are self-contained: `-m <file>` and nothing else, which is all
+    /// this did before. Newer families split the transformer, VAE and text encoders
+    /// across separate files, so each one has to be located and named on the command
+    /// line — see `ImageComponents`.
+    private nonisolated static func modelArguments(for model: ImageModel,
+                                                   fm: FileManager) throws -> [String] {
+        let roles = model.arch.componentRoles
+        guard !roles.isEmpty else { return ["-m", model.path] }
+
+        let found = ImageComponents.resolve(roles: roles, modelPath: model.path, fm: fm)
+
+        // Nothing at all beside it means this is almost certainly an all-in-one
+        // checkpoint — several FLUX and SD 3.5 redistributions bake the encoders in.
+        // `-m` is what loads those, and it is also exactly the old behaviour, so a
+        // model that worked before still works.
+        guard !found.isEmpty else { return ["-m", model.path] }
+
+        // Some but not all: a split layout with a hole in it. sd-server's own failure
+        // here is a tensor-shaped complaint that never names the missing file, so
+        // name it here instead.
+        let missing = roles.filter { found[$0] == nil }
+        guard missing.isEmpty else {
+            let wanted = missing.map(\.label).joined(separator: ", ")
+            let searched = ImageComponents.searchDirectories(forModelAt: model.path, fm: fm)
+                .map(\.path).joined(separator: "\n  ")
+            throw ImageLaunchError("""
+                \(model.name) is a \(model.arch.label) model, which sd.cpp loads from several files, \
+                and \(missing.count == 1 ? "one is" : "\(missing.count) are") missing: \(wanted).
+                Put \(missing.count == 1 ? "it" : "them") in one of these folders:
+                  \(searched)
+                """)
+        }
+
+        var args = [model.arch.usesStandaloneDiffusionFlag ? "--diffusion-model" : "-m", model.path]
+        // Ordered by `roles` rather than dictionary order, so the log header is stable.
+        for role in roles {
+            guard let path = found[role] else { continue }
+            args += [role.flag, path]
+        }
+        return args
     }
 
     private nonisolated static func describe(_ error: Error) -> String {

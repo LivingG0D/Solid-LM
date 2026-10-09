@@ -214,11 +214,17 @@ enum ImageScanner {
         "lora", "-tensordata", ".part", ".partial",
     ]
 
+    /// The FLUX/Z-Image autoencoder, which ships under the bare name `ae.safetensors`
+    /// and so carries none of the tokens above. At ~335 MB it clears `minimumSize` and
+    /// would otherwise be listed as a diffusion model in its own right.
+    private static let componentNames: Set<String> = ["ae.safetensors", "ae.sft", "ae.gguf"]
+
     static func isComponentFile(_ fileName: String) -> Bool {
         // Vision projectors and draft heads are LLM components by the same argument, and a root
         // shared with the LLM side is full of them.
         if ModelScanner.isIgnorableGGUF(fileName: fileName) { return true }
         let lower = fileName.lowercased()
+        if componentNames.contains(lower) { return true }
         return componentTokens.contains { lower.contains($0) }
     }
 
@@ -229,6 +235,9 @@ enum ImageScanner {
     /// 1024-native model, which just looks broken.
     private static let archPatterns: [(pattern: String, arch: ImageArch)] = [
         (#"flux"#, .flux),
+        // Ahead of the Qwen rule: Z-Image's text encoder is a Qwen3, so its repos and
+        // folders are full of the word, and `qwen.?image` must not claim them.
+        (#"z.?image"#, .zimage),
         (#"qwen.?image"#, .qwen),
         (#"sd_?3|stable.?diffusion.?3"#, .sd3),
         (#"sdxl|xl.?base|xl.?refiner|juggernaut|realvis|dreamshaper.?xl|pony"#, .sdxl),
@@ -347,6 +356,10 @@ enum ImageScanner {
             ("clip_g.safetensors", true),
             ("t5xxl_fp16.safetensors", true),
             ("text_encoder.safetensors", true),
+            ("ae.safetensors", true),                              // the bare FLUX autoencoder
+            ("ae.sft", true),
+            ("AE.SafeTensors", true),                              // case-insensitive
+            ("realvisxlV50_Bakedae.safetensors", false),           // "ae" inside a word is a checkpoint
             ("add-detail-lora.safetensors", true),
             ("flux1-dev-tensordata.safetensors", true),
             ("sd15-Q4_0.gguf.part", true),
@@ -370,6 +383,9 @@ enum ImageScanner {
             ("FLUX.1-schnell-fp8.safetensors", .flux),
             ("qwen-image-edit-2509-Q4_K_M.gguf", .qwen),
             ("Qwen_Image_Q8_0.gguf", .qwen),
+            ("z_image_turbo-Q3_K.gguf", .zimage),
+            ("z-image-turbo-bf16.safetensors", .zimage),
+            ("z_image_bf16.safetensors", .zimage),
             ("sd3.5_large_turbo.safetensors", .sd3),
             ("sd_3_medium_incl_clips.safetensors", .sd3),
             ("stable-diffusion-3.5-medium.gguf", .sd3),
