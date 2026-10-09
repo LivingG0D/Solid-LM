@@ -24,7 +24,7 @@ enum Paths {
         NSHomeDirectory() + "/" + relative
     }
 
-    static var defaultLlamaServer: String { inHome("prism-llama/prism/llama-prism-b9599-9ca265a/llama-server") }
+    static var defaultLlamaServer: String { inHome("prism-llama/prism/llama-prism-b10754-2459f68/llama-server") }
 
     /// The venv is created inside whatever the checkout is called, and that name is not
     /// knowable from here — a clone can be `Solid-LM`, `solid-ui`, or anything else.
